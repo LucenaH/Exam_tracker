@@ -1,0 +1,1380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ExamTrack - Simple Test Scheduler</title>
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- React 18 & Babel CDN -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#f0f7ff',
+              100: '#e0f0fe',
+              500: '#0284c7',
+              600: '#0369a1',
+              700: '#075985',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body { font-family: 'Inter', sans-serif; background-color: #f8fafc; color: #1e293b; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f5f9; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+  </style>
+</head>
+<body class="bg-slate-50 min-h-screen text-slate-800">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useMemo } = React;
+
+    // Class Periods Schedule
+    const CLASS_PERIODS = [
+      { id: 0, label: 'Period 0', time: '7:00 - 7:45' },
+      { id: 1, label: 'Period 1', time: '7:50 - 8:35' },
+      { id: 2, label: 'Period 2', time: '8:40 - 9:25' },
+      { id: 3, label: 'Period 3', time: '10:15 - 11:00' },
+      { id: 4, label: 'Period 4', time: '11:05 - 11:50' },
+      { id: 5, label: 'Period 5', time: '11:55 - 12:40' },
+      { id: 6, label: 'Period 6', time: '13:40 - 14:25' },
+      { id: 7, label: 'Period 7', time: '14:30 - 15:15' },
+    ];
+
+    const TEACHER_PROFILES = [
+      { id: 't1', name: 'Dr. Henderson', department: 'Science & Physics', avatar: '👨‍🏫', role: 'teacher' },
+      { id: 't2', name: 'Ms. Vance', department: 'Mathematics & STEM', avatar: '👩‍🏫', role: 'teacher' },
+      { id: 't3', name: 'Mr. Keating', department: 'Humanities & History', avatar: '👨‍💼', role: 'teacher' },
+    ];
+
+    const ADMIN_PROFILE = {
+      id: 'admin1',
+      name: 'Principal Miller',
+      department: 'School Administration',
+      avatar: '🏛️',
+      role: 'admin'
+    };
+
+    const MOCK_CLASSES = [
+      { id: 'c1', code: '9-A Physics', grade: 9, teacherId: 't1', color: 'bg-sky-100 text-sky-800 border-sky-200' },
+      { id: 'c2', code: '10-A STEM Math', grade: 10, teacherId: 't2', color: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
+      { id: 'c3', code: '10-B Humanities', grade: 10, teacherId: 't3', color: 'bg-amber-100 text-amber-800 border-amber-200' },
+      { id: 'c4', code: '11-A Adv Chem', grade: 11, teacherId: 't1', color: 'bg-purple-100 text-purple-800 border-purple-200' },
+      { id: 'c5', code: '11-B World History', grade: 11, teacherId: 't3', color: 'bg-rose-100 text-rose-800 border-rose-200' },
+      { id: 'c6', code: '12-A AP Calculus', grade: 12, teacherId: 't2', color: 'bg-indigo-100 text-indigo-800 border-indigo-200' },
+    ];
+
+    // Cross-enrolled student population
+    const MOCK_STUDENTS = [
+      { id: 's1', name: 'Alice Smith', grade: 9, classes: ['c1', 'c3'], role: 'student', avatar: '👩‍🎓' },
+      { id: 's2', name: 'Bob Johnson', grade: 9, classes: ['c1', 'c2'], role: 'student', avatar: '👨‍🎓' },
+      { id: 's3', name: 'Charlie Davis', grade: 10, classes: ['c1', 'c2', 'c3'], role: 'student', avatar: '🧑‍🎓' },
+      { id: 's4', name: 'David Miller', grade: 10, classes: ['c1', 'c3'], role: 'student', avatar: '👨‍🎓' },
+      { id: 's5', name: 'Eva Wilson', grade: 11, classes: ['c1', 'c4'], role: 'student', avatar: '👩‍🎓' },
+      { id: 's6', name: 'Frank Taylor', grade: 10, classes: ['c2', 'c3'], role: 'student', avatar: '👨‍🎓' },
+      { id: 's7', name: 'Grace Anderson', grade: 9, classes: ['c1', 'c5'], role: 'student', avatar: '👩‍🎓' },
+      { id: 's8', name: 'Hannah Thomas', grade: 11, classes: ['c2', 'c4'], role: 'student', avatar: '👩‍🎓' },
+      { id: 's9', name: 'Ian Martinez', grade: 10, classes: ['c2', 'c5'], role: 'student', avatar: '👨‍🎓' },
+      { id: 's10', name: 'Jack White', grade: 11, classes: ['c3', 'c4'], role: 'student', avatar: '🧑‍🎓' },
+      { id: 's11', name: 'Kate Harris', grade: 11, classes: ['c4', 'c6'], role: 'student', avatar: '👩‍🎓' },
+      { id: 's12', name: 'Liam Clark', grade: 11, classes: ['c5', 'c6'], role: 'student', avatar: '👨‍🎓' },
+    ];
+
+    // Helper to format dates YYYY-MM-DD
+    const getTodayStr = () => new Date().toISOString().split('T')[0];
+    const addDaysStr = (days) => {
+      const d = new Date();
+      d.setDate(d.getDate() + days);
+      return d.toISOString().split('T')[0];
+    };
+
+    const MONTH_NAMES = [
+      "January", "February", "March", "April", "May", "June", 
+      "July", "August", "September", "October", "November", "December"
+    ];
+
+    const DAYS_OF_WEEK = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+    // Helper to format creation timestamp
+    const getFormattedTimestamp = () => {
+      const now = new Date();
+      return now.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+    };
+
+    // Initial Test Schedule
+    const INITIAL_TESTS = [
+      { id: 't1', title: 'Midterm Physics Exam', classId: 'c1', date: addDaysStr(2), period: 1, subject: 'Physics', notes: 'Covers Chapters 1-4. Bring scientific calculator.', createdAt: 'Sep 22, 2026, 9:30 AM' },
+      { id: 't2', title: 'Algebra II Quiz', classId: 'c2', date: addDaysStr(2), period: 3, subject: 'Mathematics', notes: 'Formula sheet provided.', createdAt: 'Sep 23, 2026, 11:15 AM' },
+      { id: 't3', title: 'Organic Chem Test', classId: 'c4', date: addDaysStr(4), period: 2, subject: 'Chemistry', notes: 'Periodic table will be attached to test booklet.', createdAt: 'Sep 24, 2026, 2:00 PM' },
+      { id: 't4', title: 'World History Essay', classId: 'c5', date: addDaysStr(2), period: 5, subject: 'History', notes: 'Open-note essay on Industrial Revolution.', createdAt: 'Sep 24, 2026, 3:45 PM' },
+    ];
+
+    const Icon = ({ name, className = "w-5 h-5" }) => {
+      const icons = {
+        calendar: <path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>,
+        plus: <path d="M12 5v14M5 12h14" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>,
+        users: <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM23 21v-2a4 4 0 010 7.75" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>,
+        alertTriangle: <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>,
+        check: <path d="M20 6L9 17l-5-5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>,
+        userSwitch: <path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM20 8l-2 2 2 2M20 10h-6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>,
+        search: <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>,
+        x: <path d="M18 6L6 18M6 6l12 12" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>,
+        chevronLeft: <path d="M15 18l-6-6 6-6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>,
+        chevronRight: <path d="M9 18l6-6-6-6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>,
+        sparkles: <path d="M12 3v3m0 12v3m9-9h-3M6 12H3m15.364-6.364l-2.121 2.121M6.757 17.243l-2.121 2.121m12.728 0l-2.121-2.121M6.757 6.757L4.636 4.636" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>,
+        list: <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>,
+        grid: <path d="M4 4h6v6H4zm10 0h6v6h-6zM4 14h6v6H4zm10 0h6v6h-6z" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>,
+        ban: <path d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>,
+        shield: <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>,
+        graduationCap: <path d="M22 10v6M2 10l10-5 10 5-10 5zM6 12v5c0 2 3 3 6 3s6-1 6-3v-5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      };
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          {icons[name] || null}
+        </svg>
+      );
+    };
+
+    function App() {
+      // User Profile State (Teacher, Student, or Admin)
+      const [currentUser, setCurrentUser] = useState(null); // Null = Profile Select Screen
+      const [activeTab, setActiveTab] = useState('calendar'); // 'calendar', 'schedule', 'students'
+      
+      // Schedule & Blackout Data State
+      const [tests, setTests] = useState(INITIAL_TESTS);
+      
+      // Test-Free configuration per date: { [dateStr]: { fullDay: boolean, periods: number[] } }
+      const [testFreeConfig, setTestFreeConfig] = useState({
+        [addDaysStr(5)]: { fullDay: true, periods: [] }
+      });
+
+      // New Test Form State
+      const [formClassId, setFormClassId] = useState('');
+      const [formSubject, setFormSubject] = useState('');
+      const [formTitle, setFormTitle] = useState('');
+      const [formDate, setFormDate] = useState(addDaysStr(2));
+      const [formPeriod, setFormPeriod] = useState(1);
+      const [formNotes, setFormNotes] = useState('');
+
+      // UI View & Navigation State
+      const [calendarViewMode, setCalendarViewMode] = useState('grid');
+      const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
+      const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+      const [selectedDayDetails, setSelectedDayDetails] = useState(null);
+      const [studentQuery, setStudentQuery] = useState('');
+      const [conflictWarning, setConflictWarning] = useState(null);
+
+      const handleSelectUser = (user) => {
+        setCurrentUser(user);
+        if (user.role === 'teacher') {
+          const teacherClasses = MOCK_CLASSES.filter(c => c.teacherId === user.id);
+          if (teacherClasses.length > 0) {
+            setFormClassId(teacherClasses[0].id);
+          }
+        }
+      };
+
+      const handleToggleFullTestFreeDay = (dateStr) => {
+        if (currentUser?.role !== 'admin') return;
+        setTestFreeConfig(prev => {
+          const current = prev[dateStr];
+          if (current?.fullDay) {
+            const next = { ...prev };
+            delete next[dateStr];
+            return next;
+          } else {
+            return {
+              ...prev,
+              [dateStr]: { fullDay: true, periods: [] }
+            };
+          }
+        });
+      };
+
+      const handleTogglePeriodTestFree = (dateStr, periodId) => {
+        if (currentUser?.role !== 'admin') return;
+        setTestFreeConfig(prev => {
+          const current = prev[dateStr] || { fullDay: false, periods: [] };
+          if (current.fullDay) return prev;
+
+          const existingPeriods = current.periods || [];
+          const isBlocked = existingPeriods.includes(periodId);
+          const updatedPeriods = isBlocked 
+            ? existingPeriods.filter(p => p !== periodId)
+            : [...existingPeriods, periodId];
+
+          if (updatedPeriods.length === 0) {
+            const next = { ...prev };
+            delete next[dateStr];
+            return next;
+          }
+
+          return {
+            ...prev,
+            [dateStr]: { fullDay: false, periods: updatedPeriods }
+          };
+        });
+      };
+
+      const isTestFree = (dateStr, periodId = null) => {
+        const config = testFreeConfig[dateStr];
+        if (!config) return false;
+        if (config.fullDay) return true;
+        if (periodId !== null && config.periods?.includes(Number(periodId))) return true;
+        return false;
+      };
+
+      const studentDaySchedule = useMemo(() => {
+        const map = {};
+        tests.forEach(test => {
+          const enrolledStudents = MOCK_STUDENTS.filter(s => s.classes.includes(test.classId));
+          enrolledStudents.forEach(student => {
+            if (!map[test.date]) map[test.date] = {};
+            if (!map[test.date][student.id]) map[test.date][student.id] = [];
+            map[test.date][student.id].push(test);
+          });
+        });
+        return map;
+      }, [tests]);
+
+      const findNearestSafeDay = (classId, startDateStr) => {
+        if (!classId) return startDateStr;
+        const enrolledStudents = MOCK_STUDENTS.filter(s => s.classes.includes(classId));
+        let currDate = new Date(startDateStr || getTodayStr());
+        if (isNaN(currDate.getTime())) currDate = new Date();
+
+        for (let i = 0; i < 30; i++) {
+          const dayOfWeek = currDate.getDay();
+          const dateStr = currDate.toISOString().split('T')[0];
+
+          // Skip weekends & admin test-free full blackout days
+          if (dayOfWeek !== 0 && dayOfWeek !== 6 && !isTestFree(dateStr)) {
+            let causesOverload = false;
+            for (const student of enrolledStudents) {
+              const existingCount = (studentDaySchedule[dateStr]?.[student.id] || []).length;
+              if (existingCount >= 2) {
+                causesOverload = true;
+                break;
+              }
+            }
+            if (!causesOverload) {
+              return dateStr;
+            }
+          }
+          currDate.setDate(currDate.getDate() + 1);
+        }
+        return startDateStr;
+      };
+
+      const currentFormOverloadedStudents = useMemo(() => {
+        if (!formClassId || !formDate) return [];
+        const enrolledStudents = MOCK_STUDENTS.filter(s => s.classes.includes(formClassId));
+        const overloaded = [];
+        enrolledStudents.forEach(student => {
+          const existingOnDate = (studentDaySchedule[formDate]?.[student.id] || []);
+          if (existingOnDate.length >= 2) {
+            overloaded.push({ student, existingTests: existingOnDate });
+          }
+        });
+        return overloaded;
+      }, [formClassId, formDate, studentDaySchedule]);
+
+      const nearestSafeDayForForm = useMemo(() => {
+        return findNearestSafeDay(formClassId, formDate);
+      }, [formClassId, formDate, studentDaySchedule, testFreeConfig]);
+
+      const isFormDateBlocked = useMemo(() => {
+        return isTestFree(formDate, formPeriod);
+      }, [formDate, formPeriod, testFreeConfig]);
+
+      const handleScheduleSubmit = (e) => {
+        e.preventDefault();
+        if (currentUser.role !== 'teacher') return;
+        if (!formClassId || !formDate || !formTitle || !formSubject) return;
+
+        if (isFormDateBlocked) {
+          const config = testFreeConfig[formDate];
+          const periodObj = CLASS_PERIODS.find(p => p.id === Number(formPeriod));
+          const reason = config?.fullDay 
+            ? `FULL DAY TEST-FREE`
+            : `${periodObj?.label} (${periodObj?.time}) is designated TEST-FREE`;
+          alert(`Cannot schedule on ${formDate}. This time slot (${reason}) is blocked by School Administration.`);
+          return;
+        }
+
+        const newTestObj = {
+          id: 'test_' + Date.now(),
+          title: formTitle,
+          classId: formClassId,
+          date: formDate,
+          period: Number(formPeriod),
+          subject: formSubject,
+          notes: formNotes.trim(),
+          createdAt: getFormattedTimestamp()
+        };
+
+        if (currentFormOverloadedStudents.length > 0) {
+          setConflictWarning({
+            newTest: newTestObj,
+            overloadedStudents: currentFormOverloadedStudents,
+            suggestedSafeDay: nearestSafeDayForForm
+          });
+        } else {
+          setTests(prev => [...prev, newTestObj]);
+          setFormTitle('');
+          setFormSubject('');
+          setFormNotes('');
+          setActiveTab('calendar');
+        }
+      };
+
+      const confirmScheduleAnyway = () => {
+        if (conflictWarning) {
+          setTests(prev => [...prev, conflictWarning.newTest]);
+          setConflictWarning(null);
+          setFormTitle('');
+          setFormSubject('');
+          setFormNotes('');
+          setActiveTab('calendar');
+        }
+      };
+
+      const applySafeDayAndSchedule = (safeDay) => {
+        if (conflictWarning) {
+          const updatedTest = { ...conflictWarning.newTest, date: safeDay };
+          setTests(prev => [...prev, updatedTest]);
+          setConflictWarning(null);
+          setFormDate(safeDay);
+          setFormTitle('');
+          setFormSubject('');
+          setFormNotes('');
+          setActiveTab('calendar');
+        }
+      };
+
+      const visibleTests = useMemo(() => {
+        if (!currentUser) return [];
+        if (currentUser.role === 'student') {
+          return tests.filter(t => currentUser.classes.includes(t.classId));
+        }
+        return tests;
+      }, [currentUser, tests]);
+
+      const teacherClassIds = useMemo(() => {
+        if (!currentUser || currentUser.role !== 'teacher') return [];
+        return MOCK_CLASSES.filter(c => c.teacherId === currentUser.id).map(c => c.id);
+      }, [currentUser]);
+
+      const calendarGridDays = useMemo(() => {
+        const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+        const totalDays = new Date(currentYear, currentMonth + 1, 0).getDate();
+        
+        const days = [];
+        for (let i = 0; i < firstDay; i++) {
+          days.push(null);
+        }
+        for (let d = 1; d <= totalDays; d++) {
+          const monthStr = String(currentMonth + 1).padStart(2, '0');
+          const dayStr = String(d).padStart(2, '0');
+          const dateStr = `${currentYear}-${monthStr}-${dayStr}`;
+          days.push({
+            dayNumber: d,
+            dateStr,
+            isToday: dateStr === getTodayStr()
+          });
+        }
+        return days;
+      }, [currentYear, currentMonth]);
+
+      if (!currentUser) {
+        return (
+          <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4 py-12">
+            <div className="max-w-4xl w-full bg-white rounded-3xl shadow-sm border border-slate-200 p-8 space-y-8">
+              <div className="text-center space-y-2">
+                <div className="w-14 h-14 bg-brand-50 text-brand-600 rounded-2xl mx-auto flex items-center justify-center text-3xl font-bold">
+                  📚
+                </div>
+                <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Welcome to ExamTrack</h1>
+                <p className="text-sm text-slate-600 max-w-lg mx-auto">
+                  Select your profile to manage test calendars, schedule assessments with overload detection, or review student schedules.
+                </p>
+              </div>
+
+              <div className="space-y-6">
+                {/* 1. Administrator Section */}
+                <div>
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-1.5">
+                    <Icon name="shield" className="w-4 h-4 text-purple-600" />
+                    School Administrator
+                  </h2>
+                  <button
+                    onClick={() => handleSelectUser(ADMIN_PROFILE)}
+                    className="w-full p-4 rounded-2xl border border-purple-200 bg-purple-50/50 hover:bg-purple-100/60 transition flex items-center justify-between group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-3xl p-2 bg-white rounded-xl shadow-xs">{ADMIN_PROFILE.avatar}</span>
+                      <div className="text-left">
+                        <h3 className="font-bold text-slate-900 group-hover:text-purple-700 transition">{ADMIN_PROFILE.name}</h3>
+                        <p className="text-xs text-purple-700 font-medium">{ADMIN_PROFILE.department}</p>
+                      </div>
+                    </div>
+                    <span className="text-xs font-bold px-3 py-1 bg-purple-600 text-white rounded-xl">
+                      Manage Test-Free Days & All Schedules →
+                    </span>
+                  </button>
+                </div>
+
+                {/* 2. Teachers Section */}
+                <div>
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-1.5">
+                    <Icon name="users" className="w-4 h-4 text-brand-600" />
+                    Faculty & Teachers
+                  </h2>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {TEACHER_PROFILES.map(t => {
+                      const myClasses = MOCK_CLASSES.filter(c => c.teacherId === t.id);
+                      return (
+                        <button
+                          key={t.id}
+                          onClick={() => handleSelectUser(t)}
+                          className="p-4 rounded-2xl border border-slate-200 bg-white hover:border-brand-500 hover:bg-brand-50/30 transition text-left space-y-2 group"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="text-2xl">{t.avatar}</span>
+                            <div>
+                              <h3 className="font-bold text-sm text-slate-900 group-hover:text-brand-600 transition">{t.name}</h3>
+                              <p className="text-[11px] text-slate-500 font-medium">{t.department}</p>
+                            </div>
+                          </div>
+                          <div className="pt-2 border-t border-slate-100 flex flex-wrap gap-1">
+                            {myClasses.map(c => (
+                              <span key={c.id} className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-600">
+                                {c.code}
+                              </span>
+                            ))}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 3. Students Section */}
+                <div>
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-1.5">
+                    <Icon name="graduationCap" className="w-4 h-4 text-emerald-600" />
+                    Students (Select Student Profile)
+                  </h2>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
+                    {MOCK_STUDENTS.map(s => (
+                      <button
+                        key={s.id}
+                        onClick={() => handleSelectUser(s)}
+                        className="p-3 rounded-xl border border-slate-200 bg-white hover:border-emerald-500 hover:bg-emerald-50/40 transition text-left flex items-center gap-2.5 group"
+                      >
+                        <span className="text-xl">{s.avatar}</span>
+                        <div className="truncate">
+                          <h3 className="font-bold text-xs text-slate-800 group-hover:text-emerald-700 truncate">{s.name}</h3>
+                          <p className="text-[10px] text-slate-400">Grade {s.grade}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      return (
+        <div className="min-h-screen flex flex-col">
+          
+          {/* Header Bar */}
+          <header className="bg-white border-b border-slate-200 sticky top-0 z-20">
+            <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
+              
+              <div className="flex items-center space-x-3">
+                <span className="text-2xl">📚</span>
+                <div>
+                  <span className="font-bold text-lg text-slate-900 tracking-tight block">ExamTrack</span>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    {currentUser.role === 'admin' ? 'Administrator Portal' : currentUser.role === 'teacher' ? 'Teacher Portal' : 'Student Portal'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Profile Switcher */}
+              <div className="flex items-center gap-3">
+                <div className={`flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-xl border ${
+                  currentUser.role === 'admin'
+                    ? 'bg-purple-50 text-purple-800 border-purple-200'
+                    : currentUser.role === 'teacher'
+                    ? 'bg-sky-50 text-sky-800 border-sky-200'
+                    : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                }`}>
+                  <span>{currentUser.avatar}</span>
+                  <span>{currentUser.name}</span>
+                  <span className="text-[10px] uppercase font-bold opacity-75">({currentUser.role})</span>
+                </div>
+                <button
+                  onClick={() => setCurrentUser(null)}
+                  className="text-xs text-slate-600 hover:text-slate-900 font-semibold flex items-center gap-1 border border-slate-200 px-3 py-1.5 rounded-xl hover:bg-slate-50 transition"
+                  title="Switch Profile"
+                >
+                  <Icon name="userSwitch" className="w-3.5 h-3.5" />
+                  <span>Switch Profile</span>
+                </button>
+              </div>
+
+            </div>
+
+            {/* Navigation Tabs */}
+            <div className="max-w-6xl mx-auto px-4 border-t border-slate-100">
+              <nav className="flex space-x-6">
+                <button
+                  onClick={() => setActiveTab('calendar')}
+                  className={`flex items-center gap-2 py-3 px-1 text-sm font-semibold border-b-2 transition ${
+                    activeTab === 'calendar' ? 'border-brand-600 text-brand-600' : 'border-transparent text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  <Icon name="calendar" className="w-4 h-4" />
+                  <span>{currentUser.role === 'student' ? 'My Test Calendar' : 'Test Calendar'}</span>
+                </button>
+
+                {currentUser.role === 'teacher' && (
+                  <button
+                    onClick={() => setActiveTab('schedule')}
+                    className={`flex items-center gap-2 py-3 px-1 text-sm font-semibold border-b-2 transition ${
+                      activeTab === 'schedule' ? 'border-brand-600 text-brand-600' : 'border-transparent text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    <Icon name="plus" className="w-4 h-4" />
+                    <span>Schedule Assessment</span>
+                  </button>
+                )}
+
+                <button
+                  onClick={() => setActiveTab('students')}
+                  className={`flex items-center gap-2 py-3 px-1 text-sm font-semibold border-b-2 transition ${
+                    activeTab === 'students' ? 'border-brand-600 text-brand-600' : 'border-transparent text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  <Icon name="users" className="w-4 h-4" />
+                  <span>{currentUser.role === 'student' ? 'My Workload' : 'Student Workload Hub'}</span>
+                </button>
+              </nav>
+            </div>
+          </header>
+
+          {/* Main Body Content */}
+          <main className="max-w-6xl mx-auto px-4 py-8 flex-1 w-full">
+            
+            {/* Student Banner Notice */}
+            {currentUser.role === 'student' && (
+              <div className="mb-6 p-4 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-between text-emerald-900 text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">🎓</span>
+                  <div>
+                    <span className="font-bold block text-sm">Welcome back, {currentUser.name}!</span>
+                    Viewing your personal test schedule. Days with 2 tests will display a warning badge so you can plan your study time.
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Admin Banner Notice */}
+            {currentUser.role === 'admin' && (
+              <div className="mb-6 p-4 rounded-2xl bg-purple-50 border border-purple-200 flex items-center justify-between text-purple-900 text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">🏛️</span>
+                  <div>
+                    <span className="font-bold block text-sm">Administrator Control Panel</span>
+                    Inspect school schedules and click any day in the calendar to manage <strong>Full-Day or Period-Specific Test-Free status</strong>.
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* --- TAB 1: CALENDAR VIEW --- */}
+            {activeTab === 'calendar' && (
+              <div className="space-y-6">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div>
+                    <h2 className="text-xl font-bold text-slate-900">
+                      {currentUser.role === 'student' ? 'My Personal Exam Calendar' : 'School Test Calendar'}
+                    </h2>
+                    <p className="text-xs text-slate-500">
+                      {currentUser.role === 'student' 
+                        ? 'Click any day square to see details for your upcoming tests.' 
+                        : currentUser.role === 'admin' 
+                        ? 'Click any day to view tests or set full-day/period test-free restrictions.'
+                        : 'Interactive month grid. Click any day square to see details.'}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2 self-stretch sm:self-auto">
+                    <div className="bg-slate-100 p-1 rounded-xl flex items-center text-xs font-semibold">
+                      <button
+                        onClick={() => setCalendarViewMode('grid')}
+                        className={`px-3 py-1.5 rounded-lg flex items-center gap-1 transition ${
+                          calendarViewMode === 'grid' ? 'bg-white shadow-xs text-brand-600' : 'text-slate-600'
+                        }`}
+                      >
+                        <Icon name="grid" className="w-3.5 h-3.5" />
+                        Grid
+                      </button>
+                      <button
+                        onClick={() => setCalendarViewMode('list')}
+                        className={`px-3 py-1.5 rounded-lg flex items-center gap-1 transition ${
+                          calendarViewMode === 'list' ? 'bg-white shadow-xs text-brand-600' : 'text-slate-600'
+                        }`}
+                      >
+                        <Icon name="list" className="w-3.5 h-3.5" />
+                        List
+                      </button>
+                    </div>
+
+                    {currentUser.role === 'teacher' && (
+                      <button
+                        onClick={() => setActiveTab('schedule')}
+                        className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs rounded-xl flex items-center gap-1.5 transition ml-auto"
+                      >
+                        <Icon name="plus" className="w-4 h-4" />
+                        Schedule Test
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Grid View */}
+                {calendarViewMode === 'grid' ? (
+                  <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
+                    {/* Month Navigation */}
+                    <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <h3 className="font-bold text-slate-900 text-lg">
+                          {MONTH_NAMES[currentMonth]} {currentYear}
+                        </h3>
+                        <button
+                          onClick={() => {
+                            const now = new Date();
+                            setCurrentMonth(now.getMonth());
+                            setCurrentYear(now.getFullYear());
+                          }}
+                          className="text-[11px] font-bold text-brand-600 bg-brand-50 hover:bg-brand-100 px-2.5 py-1 rounded-lg transition"
+                        >
+                          Today
+                        </button>
+                      </div>
+
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => {
+                            if (currentMonth === 0) {
+                              setCurrentMonth(11);
+                              setCurrentYear(prev => prev - 1);
+                            } else {
+                              setCurrentMonth(prev => prev - 1);
+                            }
+                          }}
+                          className="p-2 hover:bg-slate-200/60 rounded-xl text-slate-600 transition"
+                        >
+                          <Icon name="chevronLeft" className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (currentMonth === 11) {
+                              setCurrentMonth(0);
+                              setCurrentYear(prev => prev + 1);
+                            } else {
+                              setCurrentMonth(prev => prev + 1);
+                            }
+                          }}
+                          className="p-2 hover:bg-slate-200/60 rounded-xl text-slate-600 transition"
+                        >
+                          <Icon name="chevronRight" className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Days Header */}
+                    <div className="grid grid-cols-7 border-b border-slate-200 text-center bg-slate-100/70 text-[11px] font-bold text-slate-500 py-2 uppercase tracking-wider">
+                      {DAYS_OF_WEEK.map(d => (
+                        <div key={d}>{d}</div>
+                      ))}
+                    </div>
+
+                    {/* Square Day Grid */}
+                    <div className="grid grid-cols-7 divide-x divide-y divide-slate-100 bg-slate-50">
+                      {calendarGridDays.map((cell, idx) => {
+                        if (!cell) {
+                          return <div key={`empty-${idx}`} className="bg-slate-50/50 min-h-[105px] p-2" />;
+                        }
+
+                        const dayTests = visibleTests.filter(t => t.date === cell.dateStr);
+                        const isSelected = selectedDayDetails === cell.dateStr;
+                        const dateTFConfig = testFreeConfig[cell.dateStr];
+                        const isFullTF = dateTFConfig?.fullDay;
+                        const hasPartialTF = dateTFConfig && !dateTFConfig.fullDay && dateTFConfig.periods?.length > 0;
+                        const isStudent = currentUser.role === 'student';
+                        const studentHasTwoTests = isStudent && dayTests.length >= 2;
+
+                        return (
+                          <div
+                            key={cell.dateStr}
+                            onClick={() => setSelectedDayDetails(cell.dateStr)}
+                            className={`min-h-[105px] p-2 transition cursor-pointer flex flex-col justify-between group relative ${
+                              isFullTF
+                                ? 'bg-purple-50/60 hover:bg-purple-100/60'
+                                : studentHasTwoTests
+                                ? 'bg-rose-50/70 hover:bg-rose-100/80 ring-1 ring-rose-300'
+                                : isSelected
+                                ? 'bg-brand-50/80 ring-2 ring-brand-500 z-10'
+                                : cell.isToday
+                                ? 'bg-amber-50/40 hover:bg-slate-100'
+                                : 'bg-white hover:bg-slate-100/70'
+                            }`}
+                          >
+                            <div>
+                              <div className="flex items-center justify-between mb-1">
+                                <span className={`text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center ${
+                                  cell.isToday
+                                    ? 'bg-amber-500 text-white'
+                                    : 'text-slate-700 group-hover:text-brand-600'
+                                }`}>
+                                  {cell.dayNumber}
+                                </span>
+
+                                {isFullTF ? (
+                                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-600 text-white flex items-center gap-0.5">
+                                    <Icon name="ban" className="w-2.5 h-2.5" />
+                                    Test Free
+                                  </span>
+                                ) : hasPartialTF ? (
+                                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-800 border border-purple-200">
+                                    {dateTFConfig.periods.length} Blocked P.
+                                  </span>
+                                ) : dayTests.length > 0 && (
+                                  <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded-full ${
+                                    studentHasTwoTests ? 'bg-rose-600 text-white' : 'bg-slate-100 text-slate-600'
+                                  }`}>
+                                    {dayTests.length}
+                                  </span>
+                                )}
+                              </div>
+
+                              {studentHasTwoTests && (
+                                <div className="mb-1 text-[9px] font-bold bg-rose-200 text-rose-900 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                  <Icon name="alertTriangle" className="w-3 h-3 text-rose-700 shrink-0" />
+                                  <span>⚠️ 2 Exams Scheduled!</span>
+                                </div>
+                              )}
+
+                              {!isFullTF && (
+                                <div className="space-y-1">
+                                  {dayTests.slice(0, 2).map(test => {
+                                    const classObj = MOCK_CLASSES.find(c => c.id === test.classId);
+                                    const isMyClass = teacherClassIds.includes(test.classId);
+                                    return (
+                                      <div
+                                        key={test.id}
+                                        className={`text-[10px] truncate px-1.5 py-0.5 rounded font-medium border ${
+                                          isMyClass
+                                            ? 'bg-brand-50 border-brand-200 text-brand-800'
+                                            : 'bg-slate-100 border-slate-200 text-slate-700'
+                                        }`}
+                                        title={`${test.title} (${classObj?.code}) - P${test.period ?? 1}`}
+                                      >
+                                        <span className="font-bold mr-1">P{test.period ?? 1}:</span>
+                                        {test.title}
+                                      </div>
+                                    );
+                                  })}
+
+                                  {dayTests.length > 2 && (
+                                    <div className="text-[9px] font-bold text-slate-400 pl-1">
+                                      +{dayTests.length - 2} more...
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="text-[9px] text-slate-400 font-medium text-right opacity-0 group-hover:opacity-100 transition pt-1">
+                              Details →
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  /* List View */
+                  <div className="space-y-4">
+                    {Object.keys(
+                      visibleTests.reduce((acc, t) => { acc[t.date] = true; return acc; }, {})
+                    ).sort().map(date => {
+                      const testsOnDate = visibleTests.filter(t => t.date === date);
+                      const config = testFreeConfig[date];
+
+                      return (
+                        <div key={date} className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                          <div className="bg-slate-50 px-4 py-2.5 border-b border-slate-200 font-bold text-xs text-slate-700 flex items-center justify-between">
+                            <span className="flex items-center gap-2">
+                              📅 {date}
+                              {config?.fullDay && (
+                                <span className="bg-purple-600 text-white font-bold text-[10px] px-2 py-0.5 rounded">
+                                  🚫 Admin Full Test-Free Day
+                                </span>
+                              )}
+                              {!config?.fullDay && config?.periods?.length > 0 && (
+                                <span className="bg-purple-100 text-purple-800 font-bold text-[10px] px-2 py-0.5 rounded border border-purple-200">
+                                  🚫 Test-Free Periods: {config.periods.map(p => `P${p}`).join(', ')}
+                                </span>
+                              )}
+                            </span>
+                            <span className="text-slate-400 font-normal">{testsOnDate.length} test(s)</span>
+                          </div>
+
+                          <div className="divide-y divide-slate-100">
+                            {testsOnDate.map(test => {
+                              const classObj = MOCK_CLASSES.find(c => c.id === test.classId);
+                              const periodObj = CLASS_PERIODS.find(p => p.id === test.period);
+                              return (
+                                <div key={test.id} className="p-4 flex items-center justify-between hover:bg-slate-50/50 transition">
+                                  <div className="space-y-1">
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-bold text-sm text-slate-900">{test.title}</span>
+                                      <span className={`text-[11px] font-semibold px-2 py-0.5 rounded ${classObj?.color}`}>
+                                        {classObj?.code}
+                                      </span>
+                                      <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
+                                        ⏰ {periodObj?.label} ({periodObj?.time})
+                                      </span>
+                                    </div>
+                                    <p className="text-xs text-slate-500">Subject: {test.subject}</p>
+                                    <p className="text-[10px] text-slate-400">🕒 Scheduled on: {test.createdAt || 'N/A'}</p>
+                                    {test.notes && (
+                                      <p className="text-xs text-slate-600 bg-slate-50 p-2 rounded-lg border border-slate-200 mt-1 italic">
+                                        📝 Note: "{test.notes}"
+                                      </p>
+                                    )}
+                                  </div>
+
+                                  {currentUser.role === 'teacher' && (
+                                    <button
+                                      onClick={() => setTests(prev => prev.filter(t => t.id !== test.id))}
+                                      className="text-slate-400 hover:text-rose-600 p-1 transition"
+                                      title="Remove Test"
+                                    >
+                                      <Icon name="x" className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* --- TAB 2: SCHEDULE TEST FORM (TEACHER ONLY) --- */}
+            {activeTab === 'schedule' && currentUser.role === 'teacher' && (
+              <div className="max-w-2xl mx-auto bg-white rounded-2xl border border-slate-200 shadow-xs p-6 md:p-8 space-y-6">
+                <div>
+                  <h2 className="text-xl font-bold text-slate-900">Schedule New Assessment</h2>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Select a class, date, and period. ExamTrack will automatically scan student cross-enrollment to prevent 3+ test overloads.
+                  </p>
+                </div>
+
+                <form onSubmit={handleScheduleSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Target Class</label>
+                    <select
+                      value={formClassId}
+                      onChange={(e) => setFormClassId(e.target.value)}
+                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-brand-500"
+                      required
+                    >
+                      <option value="">Select a Class...</option>
+                      {MOCK_CLASSES.filter(c => c.teacherId === currentUser.id).map(c => (
+                        <option key={c.id} value={c.id}>
+                          {c.code} (Grade {c.grade})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Subject</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Physics / Calculus"
+                        value={formSubject}
+                        onChange={(e) => setFormSubject(e.target.value)}
+                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-brand-500"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Test Title</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Midterm Unit 3 Exam"
+                        value={formTitle}
+                        onChange={(e) => setFormTitle(e.target.value)}
+                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-brand-500"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Assessment Date</label>
+                      <input
+                        type="date"
+                        value={formDate}
+                        onChange={(e) => setFormDate(e.target.value)}
+                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-brand-500"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Class Period</label>
+                      <select
+                        value={formPeriod}
+                        onChange={(e) => setFormPeriod(Number(e.target.value))}
+                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-brand-500"
+                      >
+                        {CLASS_PERIODS.map(p => (
+                          <option key={p.id} value={p.id}>
+                            {p.label} ({p.time})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Optional Notes Field */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Teacher Notes / Instructions <span className="text-slate-400 font-normal">(Optional)</span>
+                    </label>
+                    <textarea
+                      rows="2"
+                      placeholder="e.g. Open book test, formula sheets provided, bring scientific calculator..."
+                      value={formNotes}
+                      onChange={(e) => setFormNotes(e.target.value)}
+                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-brand-500"
+                    />
+                  </div>
+
+                  {/* Test-Free Warning Alert */}
+                  {isFormDateBlocked && (
+                    <div className="p-3 bg-purple-50 border border-purple-200 rounded-xl text-purple-900 text-xs font-semibold flex items-center gap-2">
+                      <Icon name="ban" className="w-4 h-4 text-purple-600 shrink-0" />
+                      <span>Warning: Selected time slot is marked TEST-FREE by school administration.</span>
+                    </div>
+                  )}
+
+                  {/* Overload Warning & Nearest Safe Day Suggestion */}
+                  {currentFormOverloadedStudents.length > 0 && (
+                    <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl space-y-2">
+                      <div className="flex items-center gap-2 text-rose-800 text-xs font-bold">
+                        <Icon name="alertTriangle" className="w-4 h-4 text-rose-600" />
+                        <span>Workload Conflict Warning</span>
+                      </div>
+                      <p className="text-xs text-rose-700">
+                        {currentFormOverloadedStudents.length} student(s) in this class will exceed 2 tests on {formDate}.
+                      </p>
+
+                      {nearestSafeDayForForm && nearestSafeDayForForm !== formDate && (
+                        <div className="pt-2 border-t border-rose-200/80 flex items-center justify-between">
+                          <span className="text-xs font-semibold text-slate-700">
+                            Nearest Safe Date: <strong>{nearestSafeDayForForm}</strong>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setFormDate(nearestSafeDayForForm)}
+                            className="text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white px-3 py-1 rounded-lg transition"
+                          >
+                            Switch to {nearestSafeDayForForm}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="pt-2">
+                    <button
+                      type="submit"
+                      disabled={isFormDateBlocked}
+                      className={`w-full py-3 rounded-xl font-bold text-xs text-white shadow-xs transition ${
+                        isFormDateBlocked
+                          ? 'bg-slate-300 cursor-not-allowed'
+                          : 'bg-brand-600 hover:bg-brand-700'
+                      }`}
+                    >
+                      Confirm and Schedule Assessment
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            {/* --- TAB 3: WORKLOAD HUB --- */}
+            {activeTab === 'students' && (
+              <div className="space-y-6">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div>
+                    <h2 className="text-xl font-bold text-slate-900">
+                      {currentUser.role === 'student' ? 'My Test Workload' : 'Student Workload Hub'}
+                    </h2>
+                    <p className="text-xs text-slate-500">
+                      {currentUser.role === 'student'
+                        ? 'View all tests scheduled across your enrolled classes.'
+                        : 'Track test counts and schedules for individual students.'}
+                    </p>
+                  </div>
+
+                  {currentUser.role !== 'student' && (
+                    <div className="relative w-full sm:w-64">
+                      <Icon name="search" className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                      <input
+                        type="text"
+                        placeholder="Search student..."
+                        value={studentQuery}
+                        onChange={(e) => setStudentQuery(e.target.value)}
+                        className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-brand-500"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Display Students */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {(currentUser.role === 'student' ? [currentUser] : MOCK_STUDENTS)
+                    .filter(s => s.name.toLowerCase().includes(studentQuery.toLowerCase()))
+                    .map(student => {
+                      const studentEnrolledClasses = MOCK_CLASSES.filter(c => student.classes.includes(c.id));
+                      const studentTests = tests.filter(t => student.classes.includes(t.classId));
+
+                      return (
+                        <div key={student.id} className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4 shadow-xs">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <span className="text-3xl p-2 bg-slate-50 rounded-xl border border-slate-100">{student.avatar}</span>
+                              <div>
+                                <h3 className="font-bold text-slate-900 text-sm">{student.name}</h3>
+                                <p className="text-xs text-slate-500">Grade {student.grade}</p>
+                              </div>
+                            </div>
+                            <span className="text-xs font-bold px-3 py-1 bg-slate-100 text-slate-700 rounded-xl">
+                              {studentTests.length} Total Test(s)
+                            </span>
+                          </div>
+
+                          <div className="space-y-2">
+                            <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                              Upcoming Tests
+                            </h4>
+                            {studentTests.length === 0 ? (
+                              <p className="text-xs text-slate-400 italic">No tests scheduled.</p>
+                            ) : (
+                              <div className="space-y-1.5">
+                                {studentTests.map(t => {
+                                  const periodObj = CLASS_PERIODS.find(p => p.id === t.period);
+                                  return (
+                                    <div key={t.id} className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 text-xs space-y-1">
+                                      <div className="flex justify-between font-bold text-slate-800">
+                                        <span>{t.title}</span>
+                                        <span className="text-slate-500">{t.date}</span>
+                                      </div>
+                                      <div className="flex items-center justify-between text-[11px] text-slate-500">
+                                        <span>Subject: {t.subject}</span>
+                                        <span className="font-bold bg-slate-200 px-1.5 py-0.5 rounded text-slate-700">
+                                          {periodObj?.label} ({periodObj?.time})
+                                        </span>
+                                      </div>
+                                      {t.notes && (
+                                        <p className="text-[11px] text-slate-600 italic bg-white p-2 rounded-lg border border-slate-100 mt-1">
+                                          📝 {t.notes}
+                                        </p>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+            )}
+
+            {/* Selected Date Inspector Modal */}
+            {selectedDayDetails && (
+              <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-40 flex items-center justify-center p-4">
+                <div className="bg-white max-w-lg w-full rounded-2xl p-6 border border-slate-200 space-y-5 shadow-xl max-h-[90vh] overflow-y-auto">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">📅</span>
+                      <div>
+                        <h3 className="font-bold text-slate-900 text-base">
+                          Details for {selectedDayDetails}
+                        </h3>
+                        <p className="text-xs text-slate-500">
+                          {visibleTests.filter(t => t.date === selectedDayDetails).length} assessment(s) scheduled on this day
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setSelectedDayDetails(null)}
+                      className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition"
+                    >
+                      <Icon name="x" className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  {/* Admin Controls */}
+                  {currentUser.role === 'admin' && (
+                    <div className="p-4 rounded-xl bg-purple-50 border border-purple-200 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="font-bold text-xs text-purple-900 block">Administrator Controls</span>
+                          <span className="text-[11px] text-purple-700">Set full-day or period-specific test restrictions</span>
+                        </div>
+                        <button
+                          onClick={() => handleToggleFullTestFreeDay(selectedDayDetails)}
+                          className={`px-3 py-1.5 rounded-xl font-bold text-xs transition shrink-0 flex items-center gap-1 ${
+                            testFreeConfig[selectedDayDetails]?.fullDay
+                              ? 'bg-rose-600 hover:bg-rose-700 text-white'
+                              : 'bg-purple-600 hover:bg-purple-700 text-white'
+                          }`}
+                        >
+                          <Icon name="ban" className="w-3.5 h-3.5" />
+                          {testFreeConfig[selectedDayDetails]?.fullDay ? 'Remove Full-Day Block' : 'Set Full-Day Test-Free'}
+                        </button>
+                      </div>
+
+                      {!testFreeConfig[selectedDayDetails]?.fullDay && (
+                        <div className="pt-2 border-t border-purple-200/60 space-y-2">
+                          <label className="text-[11px] font-bold text-purple-900 block">
+                            Or Block Specific Periods:
+                          </label>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                            {CLASS_PERIODS.map(p => {
+                              const isBlocked = (testFreeConfig[selectedDayDetails]?.periods || []).includes(p.id);
+                              return (
+                                <button
+                                  key={p.id}
+                                  onClick={() => handleTogglePeriodTestFree(selectedDayDetails, p.id)}
+                                  className={`p-1.5 rounded-lg text-[10px] font-bold border text-left transition flex flex-col justify-between ${
+                                    isBlocked 
+                                      ? 'bg-purple-700 text-white border-purple-800' 
+                                      : 'bg-white text-slate-700 border-purple-200 hover:border-purple-400'
+                                  }`}
+                                >
+                                  <span>{p.label}</span>
+                                  <span className="text-[9px] opacity-80">{p.time}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Student 2-Test Warning */}
+                  {currentUser.role === 'student' && visibleTests.filter(t => t.date === selectedDayDetails).length >= 2 && (
+                    <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs flex items-center gap-2">
+                      <Icon name="alertTriangle" className="w-4 h-4 text-rose-600 shrink-0" />
+                      <div>
+                        <strong>Workload Alert:</strong> You have 2 tests on this date! Make sure to organize your study time in advance.
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Tests List */}
+                  <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
+                    {visibleTests.filter(t => t.date === selectedDayDetails).length === 0 ? (
+                      <div className="p-6 text-center text-slate-400 text-xs font-medium border border-dashed border-slate-200 rounded-xl">
+                        {testFreeConfig[selectedDayDetails]?.fullDay
+                          ? '🚫 Marked as a Full Test-Free Day by Administration.'
+                          : 'No tests scheduled for this day.'}
+                      </div>
+                    ) : (
+                      visibleTests.filter(t => t.date === selectedDayDetails).map(test => {
+                        const classObj = MOCK_CLASSES.find(c => c.id === test.classId);
+                        const periodObj = CLASS_PERIODS.find(p => p.id === test.period);
+                        return (
+                          <div key={test.id} className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 flex items-start justify-between gap-3">
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-bold text-xs text-slate-900">{test.title}</span>
+                                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${classObj?.color}`}>
+                                  {classObj?.code}
+                                </span>
+                                <span className="text-[10px] font-bold px-1.5 py-0.5 bg-slate-200 rounded text-slate-700">
+                                  {periodObj?.label} ({periodObj?.time})
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-slate-500">Subject: {test.subject}</p>
+                              <p className="text-[10px] text-slate-400">🕒 Scheduled on: {test.createdAt || 'N/A'}</p>
+                              {test.notes && (
+                                <p className="text-[11px] text-slate-600 bg-white p-2 rounded-lg border border-slate-200 italic mt-1">
+                                  📝 Note: "{test.notes}"
+                                </p>
+                              )}
+                            </div>
+
+                            {currentUser.role === 'teacher' && (
+                              <button
+                                onClick={() => setTests(prev => prev.filter(t => t.id !== test.id))}
+                                className="text-slate-400 hover:text-rose-600 p-1 transition"
+                                title="Remove test"
+                              >
+                                <Icon name="x" className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  {currentUser.role === 'teacher' && (
+                    <div className="pt-2 border-t border-slate-100 flex justify-end">
+                      <button
+                        onClick={() => {
+                          setFormDate(selectedDayDetails);
+                          setSelectedDayDetails(null);
+                          setActiveTab('schedule');
+                        }}
+                        className="px-4 py-2 bg-brand-600 text-white rounded-xl text-xs font-bold hover:bg-brand-700 transition"
+                      >
+                        + Schedule Test on {selectedDayDetails}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+          </main>
+
+          {/* CONFLICT WARNING MODAL */}
+          {conflictWarning && (
+            <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+              <div className="bg-white max-w-lg w-full rounded-2xl p-6 border border-slate-200 space-y-5 shadow-lg">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-xl bg-rose-100 text-rose-600 shrink-0">
+                    <Icon name="alertTriangle" className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900">Student Daily Limit Conflict Warning</h3>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Scheduling this test will cause students to exceed the maximum limit of 2 tests on <strong>{conflictWarning.newTest.date}</strong>.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 space-y-3">
+                  <div className="text-xs font-bold text-rose-900 uppercase">Affected Student(s):</div>
+                  {conflictWarning.overloadedStudents.map(({ student, existingTests }) => (
+                    <div key={student.id} className="text-xs text-rose-800 space-y-1">
+                      <div>• <strong>{student.name}</strong> will have 3 tests:</div>
+                      <div className="pl-3 text-[11px] text-rose-700">
+                        - Existing: {existingTests.map(t => `${t.title} (${t.subject})`).join(', ')}
+                        <br />
+                        - Proposed: {conflictWarning.newTest.title}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {conflictWarning.suggestedSafeDay && (
+                  <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 flex items-center justify-between gap-2">
+                    <div className="text-xs text-amber-900">
+                      <span className="font-bold">Recommended Solution:</span>
+                      <br />
+                      Schedule on <strong>{conflictWarning.suggestedSafeDay}</strong> (0 student conflicts).
+                    </div>
+                    <button
+                      onClick={() => applySafeDayAndSchedule(conflictWarning.suggestedSafeDay)}
+                      className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shrink-0 transition"
+                    >
+                      Use Safe Day
+                    </button>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-end gap-3 pt-2">
+                  <button
+                    onClick={() => setConflictWarning(null)}
+                    className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition"
+                  >
+                    Cancel & Pick Another Date
+                  </button>
+                  <button
+                    onClick={confirmScheduleAnyway}
+                    className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition"
+                  >
+                    Force Schedule Anyway
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
